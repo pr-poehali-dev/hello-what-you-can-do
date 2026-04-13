@@ -1,5 +1,7 @@
 import { useState } from "react";
 import Icon from "@/components/ui/icon";
+import AuthScreen from "@/components/AuthScreen";
+import CrmPanel from "@/components/CrmPanel";
 
 const HERO_IMG = "https://cdn.poehali.dev/projects/c7036e39-95fa-4881-9b8a-e193026450fa/files/64bc82e7-e5dc-4051-83b6-3d13c582a078.jpg";
 
@@ -72,12 +74,39 @@ const recommendations = [
 ];
 
 type Tab = "home" | "discuss" | "stories" | "reels" | "messages" | "recs" | "profile";
+type ProfileSub = "main" | "settings" | "notifications" | "privacy" | "edit";
+
+interface AuthUser {
+  name: string;
+  email: string;
+  isAdmin?: boolean;
+}
 
 export default function Index() {
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [showCrm, setShowCrm] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("home");
+  const [profileSub, setProfileSub] = useState<ProfileSub>("main");
   const [activeTopic, setActiveTopic] = useState("Все");
   const [likedPosts, setLikedPosts] = useState<Set<number>>(new Set());
   const [activeStory, setActiveStory] = useState<number | null>(null);
+
+  // Notification toggles
+  const [notifs, setNotifs] = useState({
+    newPosts: true, replies: true, likes: false, consultations: true,
+    stories: false, newMembers: false, weeklyDigest: true, promo: false,
+  });
+  // Privacy toggles
+  const [privacy, setPrivacy] = useState({
+    publicProfile: true, showCity: true, showChild: true,
+    allowMessages: true, showOnline: false, indexSearch: true,
+  });
+
+  const toggleNotif = (key: keyof typeof notifs) => setNotifs(p => ({ ...p, [key]: !p[key] }));
+  const togglePrivacy = (key: keyof typeof privacy) => setPrivacy(p => ({ ...p, [key]: !p[key] }));
+
+  if (!authUser) return <AuthScreen onAuth={setAuthUser} />;
+  if (showCrm) return <CrmPanel onBack={() => setShowCrm(false)} />;
 
   const toggleLike = (id: number) => {
     setLikedPosts(prev => {
@@ -443,23 +472,27 @@ export default function Index() {
         {activeTab === "profile" && (
           <div className="animate-fade-in">
             <div className="px-4 pt-5">
-              <div className="bg-white rounded-2xl p-5 text-center mb-4" style={{ border: "1px solid hsl(30 40% 92%)", boxShadow: "0 2px 16px rgba(0,0,0,0.04)" }}>
+
+              {/* Profile header card */}
+              <div className="bg-white rounded-2xl p-5 text-center mb-4 relative" style={{ border: "1px solid hsl(30 40% 92%)", boxShadow: "0 2px 16px rgba(0,0,0,0.04)" }}>
+                {authUser.isAdmin && (
+                  <button onClick={() => setShowCrm(true)} className="absolute top-3 right-3 flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1.5 rounded-xl text-white" style={{ background: "linear-gradient(135deg, #9c6edb, #7c4db8)" }}>
+                    <Icon name="LayoutDashboard" size={12} />
+                    CRM
+                  </button>
+                )}
                 <div className="relative inline-block mb-3">
                   <div className="w-20 h-20 rounded-full flex items-center justify-center text-3xl mx-auto" style={{ background: "linear-gradient(135deg, #f9a8d4, #fca5a5)", border: "3px solid white", boxShadow: "0 2px 12px rgba(240,100,120,0.25)" }}>
                     👩
                   </div>
-                  <button className="absolute bottom-0 right-0 w-6 h-6 rounded-full flex items-center justify-center" style={{ background: "hsl(350 60% 68%)" }}>
+                  <button className="absolute bottom-0 right-0 w-6 h-6 rounded-full flex items-center justify-center" style={{ background: "hsl(350 60% 68%)" }} onClick={() => setProfileSub("edit")}>
                     <Icon name="Camera" size={12} className="text-white" />
                   </button>
                 </div>
-                <h2 className="font-bold text-lg text-gray-800">Мария Иванова</h2>
+                <h2 className="font-bold text-lg text-gray-800">{authUser.name}</h2>
                 <p className="text-sm text-gray-500 mt-0.5">Мама Артёма (8 мес) • Москва</p>
                 <div className="flex justify-center gap-6 mt-4 pt-4" style={{ borderTop: "1px solid hsl(30 40% 95%)" }}>
-                  {[
-                    { label: "Постов", value: "24" },
-                    { label: "Подписчики", value: "156" },
-                    { label: "Подписки", value: "83" },
-                  ].map((s, i) => (
+                  {[{ label: "Постов", value: "24" }, { label: "Подписчики", value: "156" }, { label: "Подписки", value: "83" }].map((s, i) => (
                     <div key={i} className="text-center">
                       <p className="font-bold text-gray-800">{s.value}</p>
                       <p className="text-xs text-gray-400">{s.label}</p>
@@ -468,42 +501,255 @@ export default function Index() {
                 </div>
               </div>
 
-              <div className="bg-white rounded-2xl p-4 mb-4" style={{ border: "1px solid hsl(30 40% 92%)", boxShadow: "0 2px 16px rgba(0,0,0,0.04)" }}>
-                <h3 className="font-bold text-sm text-gray-800 mb-3">О себе</h3>
-                {[
-                  { icon: "Baby", label: "Малыш", value: "Артём, 8 месяцев" },
-                  { icon: "MapPin", label: "Город", value: "Москва" },
-                  { icon: "Calendar", label: "В клубе с", value: "Января 2024" },
-                ].map((item, i) => (
-                  <div key={i} className="flex items-center gap-3 py-1.5">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "hsl(350 60% 96%)" }}>
-                      <Icon name={item.icon as "Baby"} size={15} className="text-rose-400" fallback="Heart" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-400">{item.label}</p>
-                      <p className="text-sm font-semibold text-gray-700">{item.value}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              {/* Sub-nav */}
+              {profileSub !== "main" && (
+                <button onClick={() => setProfileSub("main")} className="flex items-center gap-2 mb-3 text-sm font-bold" style={{ color: "hsl(350 55% 60%)" }}>
+                  <Icon name="ChevronLeft" size={16} />
+                  Назад в профиль
+                </button>
+              )}
 
-              <div className="bg-white rounded-2xl p-2" style={{ border: "1px solid hsl(30 40% 92%)", boxShadow: "0 2px 16px rgba(0,0,0,0.04)" }}>
-                {[
-                  { icon: "Settings", label: "Настройки", bg: "#f5f5f5", color: "#888" },
-                  { icon: "Bell", label: "Уведомления", bg: "#fff0f5", color: "#e06080" },
-                  { icon: "Shield", label: "Приватность", bg: "#f5f0ff", color: "#9060c0" },
-                  { icon: "HelpCircle", label: "Помощь", bg: "#f0faf5", color: "#40a870" },
-                  { icon: "LogOut", label: "Выйти", bg: "#fff0f0", color: "#e05050" },
-                ].map((item, i) => (
-                  <div key={i} className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors hover:bg-gray-50">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: item.bg }}>
-                      <Icon name={item.icon as "Settings"} size={15} fallback="Circle" style={{ color: item.color }} />
-                    </div>
-                    <p className="flex-1 text-sm font-semibold text-gray-700">{item.label}</p>
-                    <Icon name="ChevronRight" size={15} className="text-gray-300" />
+              {/* ── MAIN MENU ── */}
+              {profileSub === "main" && (
+                <div className="flex flex-col gap-3 animate-fade-in">
+                  <div className="bg-white rounded-2xl p-4 mb-1" style={{ border: "1px solid hsl(30 40% 92%)" }}>
+                    <h3 className="font-bold text-xs text-gray-400 uppercase tracking-wider mb-2">О себе</h3>
+                    {[
+                      { icon: "Baby", label: "Малыш", value: "Артём, 8 месяцев" },
+                      { icon: "MapPin", label: "Город", value: "Москва" },
+                      { icon: "Calendar", label: "В клубе с", value: "Январь 2024" },
+                    ].map((item, i) => (
+                      <div key={i} className="flex items-center gap-3 py-2">
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "hsl(350 60% 96%)" }}>
+                          <Icon name={item.icon as "Baby"} size={14} className="text-rose-400" fallback="Heart" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-[10px] text-gray-400">{item.label}</p>
+                          <p className="text-sm font-semibold text-gray-700">{item.value}</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+
+                  <div className="bg-white rounded-2xl p-2" style={{ border: "1px solid hsl(30 40% 92%)" }}>
+                    {[
+                      { icon: "Pencil", label: "Редактировать профиль", sub: "edit" as ProfileSub, bg: "#fff8f0", color: "#f59e0b" },
+                      { icon: "Settings", label: "Настройки аккаунта", sub: "settings" as ProfileSub, bg: "#f5f5f5", color: "#888" },
+                      { icon: "Bell", label: "Уведомления", sub: "notifications" as ProfileSub, bg: "#fff0f5", color: "#e06080" },
+                      { icon: "Shield", label: "Приватность", sub: "privacy" as ProfileSub, bg: "#f5f0ff", color: "#9060c0" },
+                    ].map((item, i) => (
+                      <div key={i} className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors hover:bg-rose-50/50" onClick={() => setProfileSub(item.sub)}>
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: item.bg }}>
+                          <Icon name={item.icon as "Settings"} size={15} fallback="Circle" style={{ color: item.color }} />
+                        </div>
+                        <p className="flex-1 text-sm font-semibold text-gray-700">{item.label}</p>
+                        <Icon name="ChevronRight" size={15} className="text-gray-300" />
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="bg-white rounded-2xl p-2" style={{ border: "1px solid hsl(30 40% 92%)" }}>
+                    {[
+                      { icon: "HelpCircle", label: "Помощь и поддержка", bg: "#f0faf5", color: "#40a870" },
+                      { icon: "Star", label: "Оценить приложение", bg: "#fffbeb", color: "#d97706" },
+                    ].map((item, i) => (
+                      <div key={i} className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors hover:bg-rose-50/50">
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: item.bg }}>
+                          <Icon name={item.icon as "HelpCircle"} size={15} fallback="Circle" style={{ color: item.color }} />
+                        </div>
+                        <p className="flex-1 text-sm font-semibold text-gray-700">{item.label}</p>
+                        <Icon name="ChevronRight" size={15} className="text-gray-300" />
+                      </div>
+                    ))}
+                    <div className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors hover:bg-red-50" onClick={() => setAuthUser(null)}>
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "#fff0f0" }}>
+                        <Icon name="LogOut" size={15} style={{ color: "#e05050" }} />
+                      </div>
+                      <p className="flex-1 text-sm font-semibold" style={{ color: "#e05050" }}>Выйти</p>
+                    </div>
+                  </div>
+
+                  {authUser.isAdmin && (
+                    <button onClick={() => setShowCrm(true)} className="w-full py-3.5 rounded-2xl text-white font-bold flex items-center justify-center gap-2 transition-all hover:-translate-y-0.5" style={{ background: "linear-gradient(135deg, #9c6edb, #7c4db8)", boxShadow: "0 4px 16px rgba(140,80,200,0.3)" }}>
+                      <Icon name="LayoutDashboard" size={17} />
+                      Открыть CRM-панель
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* ── EDIT PROFILE ── */}
+              {profileSub === "edit" && (
+                <div className="flex flex-col gap-3 animate-fade-in">
+                  <div className="bg-white rounded-2xl p-4" style={{ border: "1px solid hsl(30 40% 92%)" }}>
+                    <h3 className="font-bold text-sm text-gray-700 mb-3">Личные данные</h3>
+                    {[
+                      { label: "Имя", placeholder: authUser.name, icon: "User" },
+                      { label: "Email", placeholder: authUser.email, icon: "Mail" },
+                      { label: "Город", placeholder: "Москва", icon: "MapPin" },
+                      { label: "Имя малыша", placeholder: "Артём", icon: "Baby" },
+                      { label: "Возраст малыша", placeholder: "8 месяцев", icon: "Clock" },
+                    ].map((f, i) => (
+                      <div key={i} className="mb-3">
+                        <label className="text-xs font-bold text-gray-400 mb-1 block">{f.label}</label>
+                        <div className="relative">
+                          <Icon name={f.icon as "User"} size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-rose-300" fallback="Circle" />
+                          <input className="w-full rounded-xl pl-9 pr-4 py-2.5 text-sm font-semibold outline-none" style={{ background: "#fff8fa", border: "1.5px solid #f5d0da" }} defaultValue={f.placeholder} />
+                        </div>
+                      </div>
+                    ))}
+                    <div className="mb-3">
+                      <label className="text-xs font-bold text-gray-400 mb-1 block">О себе</label>
+                      <textarea className="w-full rounded-xl px-4 py-2.5 text-sm font-semibold outline-none resize-none" style={{ background: "#fff8fa", border: "1.5px solid #f5d0da", height: "80px" }} defaultValue="Молодая мама, люблю природу и вкусную еду 🌸" />
+                    </div>
+                    <button className="w-full py-3 rounded-xl text-white font-bold transition-all hover:-translate-y-0.5" style={{ background: "linear-gradient(135deg, hsl(350 60% 72%), hsl(350 55% 62%))" }}>
+                      Сохранить изменения
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* ── SETTINGS ── */}
+              {profileSub === "settings" && (
+                <div className="flex flex-col gap-3 animate-fade-in">
+                  <div className="bg-white rounded-2xl p-4" style={{ border: "1px solid hsl(30 40% 92%)" }}>
+                    <h3 className="font-bold text-xs text-gray-400 uppercase tracking-wider mb-3">Аккаунт</h3>
+                    {[
+                      { label: "Сменить пароль", icon: "Lock", color: "#888" },
+                      { label: "Привязать телефон", icon: "Phone", color: "#40a870" },
+                      { label: "Двухфакторная защита", icon: "ShieldCheck", color: "#9060c0" },
+                      { label: "Активные сессии", icon: "Monitor", color: "#0ea5e9" },
+                    ].map((s, i) => (
+                      <div key={i} className="flex items-center gap-3 py-2.5 border-b last:border-0 cursor-pointer hover:bg-rose-50/30 rounded-xl px-1 transition-colors" style={{ borderColor: "#f5f0f5" }}>
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: s.color + "15" }}>
+                          <Icon name={s.icon as "Lock"} size={14} fallback="Circle" style={{ color: s.color }} />
+                        </div>
+                        <p className="flex-1 text-sm font-semibold text-gray-700">{s.label}</p>
+                        <Icon name="ChevronRight" size={14} className="text-gray-300" />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="bg-white rounded-2xl p-4" style={{ border: "1px solid hsl(30 40% 92%)" }}>
+                    <h3 className="font-bold text-xs text-gray-400 uppercase tracking-wider mb-3">Язык и регион</h3>
+                    {[
+                      { label: "Язык интерфейса", value: "Русский" },
+                      { label: "Часовой пояс", value: "Москва (UTC+3)" },
+                    ].map((s, i) => (
+                      <div key={i} className="flex items-center justify-between py-2.5 border-b last:border-0 cursor-pointer" style={{ borderColor: "#f5f0f5" }}>
+                        <p className="text-sm font-semibold text-gray-700">{s.label}</p>
+                        <div className="flex items-center gap-1 text-sm text-gray-400">
+                          {s.value}
+                          <Icon name="ChevronRight" size={13} className="text-gray-300" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="bg-white rounded-2xl p-4" style={{ border: "1px solid #fee2e2" }}>
+                    <h3 className="font-bold text-xs uppercase tracking-wider mb-3" style={{ color: "#ef4444" }}>Опасная зона</h3>
+                    <button className="w-full py-2.5 rounded-xl text-sm font-bold" style={{ background: "#fff0f0", color: "#ef4444", border: "1px solid #fecaca" }}>
+                      Удалить аккаунт
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* ── NOTIFICATIONS ── */}
+              {profileSub === "notifications" && (
+                <div className="flex flex-col gap-3 animate-fade-in">
+                  {[
+                    {
+                      title: "Активность",
+                      items: [
+                        { key: "newPosts" as const, label: "Новые посты в темах", desc: "Когда в подписанных темах появляются посты" },
+                        { key: "replies" as const, label: "Ответы на мои посты", desc: "Когда кто-то ответил вам" },
+                        { key: "likes" as const, label: "Лайки", desc: "Когда кто-то лайкнул ваш пост" },
+                      ]
+                    },
+                    {
+                      title: "Консультации",
+                      items: [
+                        { key: "consultations" as const, label: "Напоминание о записи", desc: "За 1 час до консультации" },
+                        { key: "stories" as const, label: "Новые сторис", desc: "От подписанных участниц" },
+                      ]
+                    },
+                    {
+                      title: "Системные",
+                      items: [
+                        { key: "newMembers" as const, label: "Новые участницы рядом", desc: "Из вашего города" },
+                        { key: "weeklyDigest" as const, label: "Еженедельный дайджест", desc: "Лучшие посты за неделю" },
+                        { key: "promo" as const, label: "Акции и предложения", desc: "Скидки на консультации" },
+                      ]
+                    }
+                  ].map((section, si) => (
+                    <div key={si} className="bg-white rounded-2xl p-4" style={{ border: "1px solid hsl(30 40% 92%)" }}>
+                      <h3 className="font-bold text-xs text-gray-400 uppercase tracking-wider mb-3">{section.title}</h3>
+                      {section.items.map((item, i) => (
+                        <div key={i} className="flex items-center gap-3 py-2.5 border-b last:border-0" style={{ borderColor: "#f5f0f5" }}>
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-gray-700">{item.label}</p>
+                            <p className="text-xs text-gray-400 mt-0.5">{item.desc}</p>
+                          </div>
+                          <button
+                            onClick={() => toggleNotif(item.key)}
+                            className="w-11 h-6 rounded-full relative transition-all shrink-0"
+                            style={{ background: notifs[item.key] ? "linear-gradient(135deg, hsl(350 60% 72%), hsl(350 55% 62%))" : "#e5e7eb" }}
+                          >
+                            <div className="w-4 h-4 bg-white rounded-full absolute top-1 transition-all" style={{ left: notifs[item.key] ? "calc(100% - 20px)" : "4px", boxShadow: "0 1px 4px rgba(0,0,0,0.2)" }}></div>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* ── PRIVACY ── */}
+              {profileSub === "privacy" && (
+                <div className="flex flex-col gap-3 animate-fade-in">
+                  {[
+                    {
+                      title: "Видимость профиля",
+                      items: [
+                        { key: "publicProfile" as const, label: "Публичный профиль", desc: "Ваш профиль виден всем участницам" },
+                        { key: "showCity" as const, label: "Показывать город", desc: "Отображать город в профиле" },
+                        { key: "showChild" as const, label: "Показывать данные малыша", desc: "Имя и возраст ребёнка" },
+                        { key: "indexSearch" as const, label: "Поиск по профилю", desc: "Можно найти через поиск в клубе" },
+                      ]
+                    },
+                    {
+                      title: "Общение",
+                      items: [
+                        { key: "allowMessages" as const, label: "Личные сообщения", desc: "Разрешить писать вам напрямую" },
+                        { key: "showOnline" as const, label: "Показывать «онлайн»", desc: "Другие видят, когда вы в сети" },
+                      ]
+                    }
+                  ].map((section, si) => (
+                    <div key={si} className="bg-white rounded-2xl p-4" style={{ border: "1px solid hsl(30 40% 92%)" }}>
+                      <h3 className="font-bold text-xs text-gray-400 uppercase tracking-wider mb-3">{section.title}</h3>
+                      {section.items.map((item, i) => (
+                        <div key={i} className="flex items-center gap-3 py-2.5 border-b last:border-0" style={{ borderColor: "#f5f0f5" }}>
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-gray-700">{item.label}</p>
+                            <p className="text-xs text-gray-400 mt-0.5">{item.desc}</p>
+                          </div>
+                          <button
+                            onClick={() => togglePrivacy(item.key)}
+                            className="w-11 h-6 rounded-full relative transition-all shrink-0"
+                            style={{ background: privacy[item.key] ? "linear-gradient(135deg, hsl(350 60% 72%), hsl(350 55% 62%))" : "#e5e7eb" }}
+                          >
+                            <div className="w-4 h-4 bg-white rounded-full absolute top-1 transition-all" style={{ left: privacy[item.key] ? "calc(100% - 20px)" : "4px", boxShadow: "0 1px 4px rgba(0,0,0,0.2)" }}></div>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                  <div className="bg-white rounded-2xl p-4" style={{ border: "1px solid hsl(30 40% 92%)" }}>
+                    <h3 className="font-bold text-xs text-gray-400 uppercase tracking-wider mb-3">Блокировки</h3>
+                    <p className="text-sm text-gray-500 text-center py-4">Заблокированных пользователей нет</p>
+                  </div>
+                </div>
+              )}
+
             </div>
           </div>
         )}
@@ -525,7 +771,7 @@ export default function Index() {
               key={item.id}
               className="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-xl transition-all cursor-pointer"
               style={activeTab === item.id ? { background: "hsl(350 60% 96%)", color: "hsl(350 55% 58%)" } : { color: "hsl(20 15% 58%)" }}
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => { setActiveTab(item.id); setProfileSub("main"); }}
             >
               <Icon name={item.icon as "Home"} size={19} fallback="Circle" />
               <span className="text-[9px] font-semibold">{item.label}</span>
