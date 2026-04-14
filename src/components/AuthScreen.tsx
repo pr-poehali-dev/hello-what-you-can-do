@@ -1,28 +1,36 @@
 import { useState } from "react";
 import Icon from "@/components/ui/icon";
+import { apiLogin, apiRegister, ApiUser } from "@/lib/api";
 
 const HERO_IMG = "https://cdn.poehali.dev/projects/c7036e39-95fa-4881-9b8a-e193026450fa/files/64bc82e7-e5dc-4051-83b6-3d13c582a078.jpg";
 
 interface AuthScreenProps {
-  onAuth: (user: { name: string; email: string; isAdmin?: boolean }) => void;
+  onAuth: (user: ApiUser) => void;
 }
 
 export default function AuthScreen({ onAuth }: AuthScreenProps) {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [form, setForm] = useState({ name: "", email: "", password: "", city: "", childAge: "" });
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
     setLoading(true);
-    setTimeout(() => {
+    try {
+      let result;
+      if (mode === "login") {
+        result = await apiLogin(form.email, form.password);
+      } else {
+        result = await apiRegister({ name: form.name, email: form.email, password: form.password, city: form.city, childAge: form.childAge });
+      }
+      onAuth(result.user);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Произошла ошибка");
+    } finally {
       setLoading(false);
-      onAuth({
-        name: form.name || "Мария И.",
-        email: form.email,
-        isAdmin: form.email === "admin@mamaclub.ru",
-      });
-    }, 1200);
+    }
   };
 
   return (
@@ -136,6 +144,12 @@ export default function AuthScreen({ onAuth }: AuthScreenProps) {
                     />
                   </div>
                 </div>
+              </div>
+            )}
+
+            {error && (
+              <div className="rounded-xl px-3 py-2.5 text-sm font-semibold animate-fade-in" style={{ background: "#fee2e2", color: "#b91c1c" }}>
+                {error}
               </div>
             )}
 

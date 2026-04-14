@@ -1,0 +1,28 @@
+{
+  "tests": [
+    {
+      "name": "Get profile without token",
+      "method": "GET",
+      "path": "/?action=get",
+      "expectedStatus": 401,
+      "expectedBody": {"error": "string"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Get notifications without token",
+      "method": "GET",
+      "path": "/?action=notifications",
+      "expectedStatus": 401,
+      "expectedBody": {"error": "string"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Get privacy without token",
+      "method": "GET",
+      "path": "/?action=privacy",
+      "expectedStatus": 401,
+      "expectedBody": {"error": "string"},
+      "bodyMatcher": "partial"
+    }
+  ]
+}

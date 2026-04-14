@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Icon from "@/components/ui/icon";
 import AuthScreen from "@/components/AuthScreen";
 import CrmPanel from "@/components/CrmPanel";
+import { apiMe, apiLogout, apiGetNotifications, apiSaveNotifications, apiGetPrivacy, apiSavePrivacy, ApiUser, apiUpdateProfile } from "@/lib/api";
 
 const HERO_IMG = "https://cdn.poehali.dev/projects/c7036e39-95fa-4881-9b8a-e193026450fa/files/64bc82e7-e5dc-4051-83b6-3d13c582a078.jpg";
 
@@ -76,20 +77,17 @@ const recommendations = [
 type Tab = "home" | "discuss" | "stories" | "reels" | "messages" | "recs" | "profile";
 type ProfileSub = "main" | "settings" | "notifications" | "privacy" | "edit";
 
-interface AuthUser {
-  name: string;
-  email: string;
-  isAdmin?: boolean;
-}
-
 export default function Index() {
-  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [authUser, setAuthUser] = useState<ApiUser | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [showCrm, setShowCrm] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("home");
   const [profileSub, setProfileSub] = useState<ProfileSub>("main");
   const [activeTopic, setActiveTopic] = useState("Все");
   const [likedPosts, setLikedPosts] = useState<Set<number>>(new Set());
   const [activeStory, setActiveStory] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", city: "", childName: "", childAge: "", about: "" });
+  const [editSaving, setEditSaving] = useState(false);
 
   // Notification toggles
   const [notifs, setNotifs] = useState({
@@ -102,8 +100,66 @@ export default function Index() {
     allowMessages: true, showOnline: false, indexSearch: true,
   });
 
-  const toggleNotif = (key: keyof typeof notifs) => setNotifs(p => ({ ...p, [key]: !p[key] }));
-  const togglePrivacy = (key: keyof typeof privacy) => setPrivacy(p => ({ ...p, [key]: !p[key] }));
+  // Auto-restore session on load
+  useEffect(() => {
+    apiMe().then(u => { setAuthUser(u); setAuthLoading(false); });
+  }, []);
+
+  // Load settings when opening profile sub-pages
+  useEffect(() => {
+    if (profileSub === "notifications" && authUser) {
+      apiGetNotifications().then(d => setNotifs(n => ({ ...n, ...d }))).catch(() => {});
+    }
+    if (profileSub === "privacy" && authUser) {
+      apiGetPrivacy().then(d => setPrivacy(p => ({ ...p, ...d }))).catch(() => {});
+    }
+    if (profileSub === "edit" && authUser) {
+      setEditForm({ name: authUser.name, city: authUser.city, childName: authUser.childName, childAge: authUser.childAge, about: authUser.about });
+    }
+  }, [profileSub, authUser]);
+
+  const toggleNotif = (key: keyof typeof notifs) => {
+    const next = { ...notifs, [key]: !notifs[key] };
+    setNotifs(next);
+    apiSaveNotifications(next).catch(() => {});
+  };
+
+  const togglePrivacy = (key: keyof typeof privacy) => {
+    const next = { ...privacy, [key]: !privacy[key] };
+    setPrivacy(next);
+    apiSavePrivacy(next).catch(() => {});
+  };
+
+  const handleLogout = async () => {
+    await apiLogout();
+    setAuthUser(null);
+  };
+
+  const handleSaveProfile = async () => {
+    setEditSaving(true);
+    try {
+      const updated = await apiUpdateProfile(editForm);
+      setAuthUser(updated);
+      setProfileSub("main");
+    } catch (e) {
+      console.error(e);
+    }
+    setEditSaving(false);
+  };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "linear-gradient(160deg, #fff0f5 0%, #f5f0ff 50%, #fff8f0 100%)" }}>
+        <div className="text-center">
+          <div className="text-5xl mb-4">🌸</div>
+          <svg className="animate-spin w-6 h-6 mx-auto" viewBox="0 0 24 24" fill="none">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="hsl(350 60% 72%)" strokeWidth="4"/>
+            <path className="opacity-75" fill="hsl(350 60% 72%)" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+          </svg>
+        </div>
+      </div>
+    );
+  }
 
   if (!authUser) return <AuthScreen onAuth={setAuthUser} />;
   if (showCrm) return <CrmPanel onBack={() => setShowCrm(false)} />;
@@ -490,7 +546,11 @@ export default function Index() {
                   </button>
                 </div>
                 <h2 className="font-bold text-lg text-gray-800">{authUser.name}</h2>
-                <p className="text-sm text-gray-500 mt-0.5">Мама Артёма (8 мес) • Москва</p>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  {authUser.childName ? `Мама ${authUser.childName}` : "МамаКлуб"}
+                  {authUser.childAge ? ` (${authUser.childAge})` : ""}
+                  {authUser.city ? ` • ${authUser.city}` : ""}
+                </p>
                 <div className="flex justify-center gap-6 mt-4 pt-4" style={{ borderTop: "1px solid hsl(30 40% 95%)" }}>
                   {[{ label: "Постов", value: "24" }, { label: "Подписчики", value: "156" }, { label: "Подписки", value: "83" }].map((s, i) => (
                     <div key={i} className="text-center">
@@ -515,9 +575,9 @@ export default function Index() {
                   <div className="bg-white rounded-2xl p-4 mb-1" style={{ border: "1px solid hsl(30 40% 92%)" }}>
                     <h3 className="font-bold text-xs text-gray-400 uppercase tracking-wider mb-2">О себе</h3>
                     {[
-                      { icon: "Baby", label: "Малыш", value: "Артём, 8 месяцев" },
-                      { icon: "MapPin", label: "Город", value: "Москва" },
-                      { icon: "Calendar", label: "В клубе с", value: "Январь 2024" },
+                      { icon: "Baby", label: "Малыш", value: authUser.childName ? `${authUser.childName}${authUser.childAge ? ", " + authUser.childAge : ""}` : "Не указан" },
+                      { icon: "MapPin", label: "Город", value: authUser.city || "Не указан" },
+                      { icon: "Mail", label: "Email", value: authUser.email },
                     ].map((item, i) => (
                       <div key={i} className="flex items-center gap-3 py-2">
                         <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "hsl(350 60% 96%)" }}>
@@ -561,7 +621,7 @@ export default function Index() {
                         <Icon name="ChevronRight" size={15} className="text-gray-300" />
                       </div>
                     ))}
-                    <div className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors hover:bg-red-50" onClick={() => setAuthUser(null)}>
+                    <div className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors hover:bg-red-50" onClick={handleLogout}>
                       <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "#fff0f0" }}>
                         <Icon name="LogOut" size={15} style={{ color: "#e05050" }} />
                       </div>
@@ -584,26 +644,42 @@ export default function Index() {
                   <div className="bg-white rounded-2xl p-4" style={{ border: "1px solid hsl(30 40% 92%)" }}>
                     <h3 className="font-bold text-sm text-gray-700 mb-3">Личные данные</h3>
                     {[
-                      { label: "Имя", placeholder: authUser.name, icon: "User" },
-                      { label: "Email", placeholder: authUser.email, icon: "Mail" },
-                      { label: "Город", placeholder: "Москва", icon: "MapPin" },
-                      { label: "Имя малыша", placeholder: "Артём", icon: "Baby" },
-                      { label: "Возраст малыша", placeholder: "8 месяцев", icon: "Clock" },
+                      { label: "Имя", key: "name" as const, icon: "User", placeholder: "Ваше имя" },
+                      { label: "Город", key: "city" as const, icon: "MapPin", placeholder: "Москва" },
+                      { label: "Имя малыша", key: "childName" as const, icon: "Baby", placeholder: "Артём" },
+                      { label: "Возраст малыша", key: "childAge" as const, icon: "Clock", placeholder: "8 месяцев" },
                     ].map((f, i) => (
                       <div key={i} className="mb-3">
                         <label className="text-xs font-bold text-gray-400 mb-1 block">{f.label}</label>
                         <div className="relative">
                           <Icon name={f.icon as "User"} size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-rose-300" fallback="Circle" />
-                          <input className="w-full rounded-xl pl-9 pr-4 py-2.5 text-sm font-semibold outline-none" style={{ background: "#fff8fa", border: "1.5px solid #f5d0da" }} defaultValue={f.placeholder} />
+                          <input
+                            className="w-full rounded-xl pl-9 pr-4 py-2.5 text-sm font-semibold outline-none"
+                            style={{ background: "#fff8fa", border: "1.5px solid #f5d0da" }}
+                            placeholder={f.placeholder}
+                            value={editForm[f.key]}
+                            onChange={e => setEditForm(p => ({ ...p, [f.key]: e.target.value }))}
+                          />
                         </div>
                       </div>
                     ))}
                     <div className="mb-3">
                       <label className="text-xs font-bold text-gray-400 mb-1 block">О себе</label>
-                      <textarea className="w-full rounded-xl px-4 py-2.5 text-sm font-semibold outline-none resize-none" style={{ background: "#fff8fa", border: "1.5px solid #f5d0da", height: "80px" }} defaultValue="Молодая мама, люблю природу и вкусную еду 🌸" />
+                      <textarea
+                        className="w-full rounded-xl px-4 py-2.5 text-sm font-semibold outline-none resize-none"
+                        style={{ background: "#fff8fa", border: "1.5px solid #f5d0da", height: "80px" }}
+                        placeholder="Расскажите о себе..."
+                        value={editForm.about}
+                        onChange={e => setEditForm(p => ({ ...p, about: e.target.value }))}
+                      />
                     </div>
-                    <button className="w-full py-3 rounded-xl text-white font-bold transition-all hover:-translate-y-0.5" style={{ background: "linear-gradient(135deg, hsl(350 60% 72%), hsl(350 55% 62%))" }}>
-                      Сохранить изменения
+                    <button
+                      onClick={handleSaveProfile}
+                      disabled={editSaving}
+                      className="w-full py-3 rounded-xl text-white font-bold transition-all hover:-translate-y-0.5 disabled:opacity-70"
+                      style={{ background: "linear-gradient(135deg, hsl(350 60% 72%), hsl(350 55% 62%))" }}
+                    >
+                      {editSaving ? "Сохраняем..." : "Сохранить изменения"}
                     </button>
                   </div>
                 </div>
